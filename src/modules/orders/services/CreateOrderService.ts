@@ -49,7 +49,7 @@ class CreateOrderService {
       product => !existentProductsIds.includes(product.id),
     );
 
-    if (!checkInexistentProducts.length) {
+    if (checkInexistentProducts.length) {
       throw new AppError(`could not product ${checkInexistentProducts[0].id}`);
     }
 
@@ -64,6 +64,29 @@ class CreateOrderService {
          ${findProductsWithNoQuatintyAvailable[0].id}`,
       );
     }
+    const serializedProducts = products.map(product => ({
+      product_id: product.id,
+      quantity: product.quantity,
+      price: existentProducts.filter(p => p.id === product.id)[0].price,
+    }));
+
+    const order = await this.ordersRepository.create({
+      customer: customersExists,
+      products: serializedProducts,
+    });
+
+    const { order_products } = order;
+
+    const orderedProductsQuantity = order_products.map(product => ({
+      id: product.product_id,
+      quantity:
+        existentProducts.filter(p => p.id === product.product_id)[0].quantity -
+        product.quantity,
+    }));
+
+    await this.productsRepository.updateQuantity(orderedProductsQuantity);
+
+    return order;
   }
 }
 
